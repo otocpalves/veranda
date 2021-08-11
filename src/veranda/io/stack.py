@@ -337,7 +337,7 @@ class GeoTiffRasterStack:
                 filepath = os.path.join(dir_path, '{:}.tif'.format(filename))
                 filepaths.append(filepath)
 
-                with GeoTiffFile(filepath, mode='w', n_bands=1) as src:
+                with GeoTiffFile(filepath, mode='w', n_bands=1, gdal_opt=self.gdal_opt) as src:
                     src.write(ds[name].isel(time=i).values, band=1, nodataval=nodata,
                               scale_factor=scale_factor, add_offset=add_offset)
 
@@ -363,7 +363,7 @@ class GeoTiffRasterStack:
 
             yield time_stamp, self._auto_decode(data, band)
 
-    def export_to_nc(self, path, band='data', **kwargs):
+    def export_to_nc(self, path, band='data', chunksizes = None, **kwargs):
         """
         Export to NetCDF files.
 
@@ -382,7 +382,7 @@ class GeoTiffRasterStack:
         timestamps = []
         filepaths = []
 
-        with NcRasterStack(mode='w', geotrans=self.geotrans, sref=self.sref, **kwargs) as rts:
+        with NcRasterStack(mode='w', geotrans=self.geotrans, sref=self.sref, chunksizes=chunksizes,**kwargs) as rts:
             for timestamp, data in self.iter_img():
                 coords = {'time': [timestamp]}
                 ds = xr.Dataset({band:
@@ -666,7 +666,7 @@ class NcRasterStack:
         gm_name = NcFile.get_gm_name(self.mfdataset)
         if gm_name is not None:
             data[gm_name] = self.mfdataset[gm_name]
-        
+
         #add attributes
         data.attrs=self.mfdataset.attrs
 
@@ -722,7 +722,7 @@ class NcRasterStack:
             yield timestamp, self.mfdataset[var_name][i, :, :]
 
     def write_netcdfs(self, ds, dir_path, stack_size="%Y%m", fn_prefix='', fn_suffix='.nc'):
-        
+
         #inclusive left, exclusive right
         #stacks are smaller than 1D
         if any(x in stack_size for x in ['H','min','T']):
@@ -829,3 +829,4 @@ class NcRasterStack:
 
         bands = [1]*len(filepaths)
         return pd.DataFrame({'filepath': filepaths, 'band': bands}, index=timestamps)
+
